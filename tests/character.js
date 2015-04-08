@@ -40,13 +40,15 @@ exports["character"] = {
 
     attributes: function(test) {
         test.expect(6);
-        test.equal(this.character.str, att.str, "STR");
 
+        // FIXME change this to use an iterator
+        test.equal(this.character.str, att.str, "STR");
         test.equal(this.character.dex, att.dex, "DEX");
         test.equal(this.character.int, att.int, "INT");
         test.equal(this.character.cha, att.cha, "CHA");
         test.equal(this.character.wis, att.str, "WIS");
         test.equal(this.character.con, att.str, "CON");
+
         test.done();
     },
 

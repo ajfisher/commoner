@@ -89,12 +89,37 @@ module.exports = function(grunt) {
                 },
             }
         },
+        
+        todo: {
+            options: {
+                usePackage: true,
+                marks: [
+                    {
+                        name: "TODO",
+                        pattern: /\/\/ TODO/,
+                        color: "yellow",
+                    },
+                    {
+                        name: "FIX",
+                        pattern: /\/\/ FIXME/,
+                        color: "red",
+                    },
+                ],
+            },
+            src: [
+                "Gruntfile.js",
+                "test/**/*",
+                "lib/**/*",
+                
+            ],
+        },
     });
 
     grunt.loadNpmTasks("grunt-contrib-watch");
     grunt.loadNpmTasks("grunt-contrib-nodeunit");
     grunt.loadNpmTasks("grunt-contrib-jshint");
     grunt.loadNpmTasks("grunt-jsbeautifier");
+    grunt.loadNpmTasks("grunt-todo");
 
     // TODO Add code to use JSCS
 
