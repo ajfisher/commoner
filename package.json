@@ -1,0 +1,35 @@
+{
+  "name": "commoner",
+  "version": "1.0.0",
+  "description": "Used for some game help",
+  "main": "cli.js",
+  "scripts": {
+    "test": "grunt nodeunit:complete"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajfisher/commoner.git"
+  },
+  "keywords": [
+    "games"
+  ],
+  "author": "Andrew Fisher <ajfisher.td@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ajfisher/commoner/issues"
+  },
+  "homepage": "https://github.com/ajfisher/commoner",
+  "dependencies": {
+    "minimist": "^1.1.1",
+    "standardice": "0.0.5"
+  },
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-contrib-jshint": "^0.11.1",
+    "grunt-contrib-nodeunit": "^0.4.1",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt-jsbeautifier": "^0.2.10",
+    "sinon": "^1.14.1",
+    "sinon-nodeunit": "^0.1.2"
+  }
+}
