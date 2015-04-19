@@ -105,6 +105,7 @@ module.exports = function(grunt) {
                         color: "red",
                     },
                 ],
+                file: "todo.md",
             },
             src: [
                 "Gruntfile.js",
