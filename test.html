@@ -1,0 +1,180 @@
+<!doctype>
+<html>
+    <head>
+    </head>
+    <body>
+        <canvas width="600" height="400" id="cv" style="border:1px solid #000"></canvas>
+        <script type="text/javascript">
+
+
+            var rd = {
+                init:  function(opts) {
+
+                    var opts = opts || {};
+
+                    // da: diffusion rate of A
+                    // db: diffusion rate of B
+                    // f:  feed rate of A into the system
+                    // k:  kill rate of B from the system
+                    // h:  time unit to increment by
+                    this.da = opts.da || 1.0;
+                    this.db = opts.db || 0.5;
+                    this.f = opts.f || 0.155;
+                    this.k = opts.k || 0.062;
+                    this.h = opts.h || 0.1;
+                    this.cellsize = opts.cellsize || 50;
+
+                    this.weights = [[0.05, 0.2, 0.05], [0.2, -1, 0.2], [0.05, 0.2, 0.05]];
+
+                    this.canvas = document.getElementById('cv');
+                    this.ctx = this.canvas.getContext('2d');
+
+                    this.width = this.canvas.width / this.cellsize;
+                    this.height = this.canvas.height / this.cellsize;
+
+                    this.cells = [];
+
+                    for (var x = 0; x < this.width; x++) {
+                        this.cells[x] = [];
+                        for (var y = 0; y < this.height; y++) {
+                            this.cells[x][y] = {
+                                a: 1, //Math.random(),
+                                b: 0,
+                            };
+                        }
+                    }
+                    this.feedpoints = opts.feedpoints || [{ x: this.width/2, y: this.height/2  }];
+                    this.cells[this.width/2][this.height/2].b = 1.0;
+                    this.cells[this.width/2 + 1][this.height/2 + 1].b = 1.0;
+                    this.cells[this.width/2 - 1][this.height/2 - 1].b = 1.0;
+                    this.cells[this.width/2 - 1][this.height/2 + 1].b = 1.0;
+                    this.cells[this.width/2 + 1][this.height/2 - 1].b = 1.0;
+                    
+                    this.cells[this.width/4][this.height/4].b = 1.0;
+                    this.cells[this.width/4 + 1][this.height/4 + 1].b = 1.0;
+                    this.cells[this.width/4 - 1][this.height/4 - 1].b = 1.0;
+                    this.cells[this.width/4 - 1][this.height/4 + 1].b = 1.0;
+                    this.cells[this.width/4 + 1][this.height/4 - 1].b = 1.0;
+                    console.log(this);
+                    this.diffuse(); // call this once to set the initial conditions
+                },
+
+                draw: function() {
+                    // draws the current state of the system on the canvas
+                    var cellsize = this.cellsize;
+                    this.ctx.clearRect(0,0, this.canvas.width, this.canvas.height);
+                    for (var x = 0; x < this.width; x++) {
+                        for (var y = 0; y < this.height; y++) {
+                            //var a = this.cells[x][y].a;
+                            var b = this.cells[x][y].b;
+
+                            if (b > this.minB) {
+                                var val = (b - this.minB) / (this.maxB - this.minB);
+                                this.ctx.fillStyle = "rgba(0, 0, 0, " + val + ")";
+                                this.ctx.fillRect(x*cellsize, y*cellsize, cellsize, cellsize);
+                            }
+                        }
+                    }
+                },
+
+                diffuse: function() {
+                    // iterates over the cells and calculates the diffusion.
+                    var minA = maxA = 0;
+                    var minB = maxB = 0;
+                            var f = this.f;
+                            var k = this.k;
+                    for (var x = 0; x < this.width; x++) {
+                        for (var y = 0; y < this.height; y++) {
+
+                            var lap = this.laplacian(x, y);
+                            var a = this.cells[x][y].a;
+                            var b = this.cells[x][y].b;
+                            var abb = a * b * b;
+                            // use this to only allow feed in at a singular point
+                            // rather than across the entirety of the surface
+                            /**for (var i=0; i< this.feedpoints.length; i++) {
+                                if (x == this.feedpoints[i].x && y == this.feedpoints[i].y) {
+                                    f = this.f;
+                                }
+                            }
+                            //var A = a + (this.da * lap.a + f * (1.0 - a)) * this.h;
+                            //var B = b + (this.db * lap.b - (this.k + f) * b) * this.h**/
+
+                            var A = a + (this.da * lap.a - abb + f * (1.0 - a)) * this.h;
+                            var B = b + (this.db * lap.b + abb - (k + f) * b) * this.h
+
+                            if (A < 0) { A = 0.0; }
+                            if (B < 0) { B = 0.0; }
+
+                            this.cells[x][y].a = A;
+                            this.cells[x][y].b = B;
+
+                            if (A < minA) { minA = A; }
+                            if (A > maxA) { maxA = A; }
+                            if (B < minB) { minB = B; }
+                            if (B > maxB) { maxB = B; }
+                        }
+                    }
+                    this.minA = minA;
+                    this.minB = minB;
+                    this.maxA = maxA;
+                    this.maxB = maxB;
+                },
+
+                laplacian: function(x, y) {
+                    // calculates the weighted average of surrounding cells from the
+                    // current one
+                    var conc = { a: 0, b: 0};
+                    for (var lx = 0; lx < this.weights.length; lx++) {
+                        for (ly = 0; ly < this.weights[lx].length; ly++) {
+                            var weight = this.weights[lx][ly];
+                            // normalise the array positions based on laplacian
+                            // array relative from the current position
+                            var kx = x + lx - 1;
+                            var ky = y + ly -1;
+                            if (( kx < 0) || ( kx >= this.width) ||
+                                    ( ky < 0) || ( ky >= this.height)){
+                                conc.a = conc.a + 0;
+                                conc.b = conc.b + 0;
+                            } else {
+                                conc.a = conc.a + (weight * this.cells[kx][ky].a);
+                                conc.b = conc.b + (weight * this.cells[kx][ky].b);
+                            }
+                        }
+                    }
+                    return (conc);
+                },
+
+                update: function() {
+                    // does a frame update
+                    //this.diffuse();
+                    this.draw();
+                    window.requestAnimationFrame(function() {
+                        this.update();
+                    }.bind(this));
+                },
+            };
+
+            rd.init({
+                da: 1.0,
+                db: 0.3,
+                f: 0.0545,
+                k: 0.062,
+                h: 1,
+                cellsize: 1,
+                feedpoints: [
+                    {x: 20, y: 20},
+                    {x: 50, y: 10},
+                    {x: 40, y: 30}
+                ],
+            });
+            //window.setInterval(rd.diffuse, 1000);
+            window.requestAnimationFrame(function() {
+                rd.update();
+            });
+            window.setInterval(function() {
+                rd.diffuse();
+            }, 30);
+        </script>
+    </body>
+</html>
