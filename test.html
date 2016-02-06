@@ -32,6 +32,8 @@
                     this.width = this.canvas.width / this.cellsize;
                     this.height = this.canvas.height / this.cellsize;
 
+                    this.image = this.ctx.createImageData(this.canvas.width, this.canvas.height);
+
                     this.cells = {
                         a: new Float32Array(this.width * this.height),
                         b: new Float32Array(this.width * this.height),
@@ -41,7 +43,7 @@
                     this.cells.b.fill(0);
 
                     // 3x3 represented as vector in column major order
-                    this.weights = [0.05, 0.2, 0.05, 0.2, -1, 0.2, 0.05, 0.2, 0.05];
+                    this.weights = [0.05, 0.1, 0.05, 0.3, -1, 0.3, 0.05, 0.1, 0.05];
                     // used to hold a lookup table of the relevant indices in the
                     // cells array to calculate the laplacian operator
                     this.laplacian_lookup = [];
@@ -54,14 +56,15 @@
                     // take the mid point of the cells and then just drop a
                     // an aditional point around them. Effectively a 9 cell blob
                     // of B rather than 1 point.
-                    //this.cells.b[this.width/2 * this.height + this.height/2] = 1.0;
-                    for (var lx = -1; lx <= 1; lx++) {
-                        for (var ly = -1; ly <= 1; ly++) {
-                            var gx = this.width/2 + lx;
-                            var gy = this.height/2 + ly;
-                            this.cells.b[gx * this.height + gy] = 1.0;
+                    this.feedpoints.forEach(function (fp) {
+                        for (var lx = -1; lx <= 1; lx++) {
+                            for (var ly = -1; ly <= 1; ly++) {
+                                var gx = fp.x + lx;
+                                var gy = fp.y + ly;
+                                this.cells.b[gx * this.height + gy] = 1.0;
+                            }
                         }
-                    }
+                    }.bind(this));
                     console.log(this);
                     this.diffuse(); // call this once to set the initial conditions
                 },
@@ -69,7 +72,31 @@
                 draw: function() {
                     // draws the current state of the system on the canvas
                     var cellsize = this.cellsize;
-                    this.ctx.clearRect(0,0, this.canvas.width, this.canvas.height);
+                    //this.ctx.clearRect(0,0, this.canvas.width, this.canvas.height);
+
+                    var row_bytes = this.canvas.width * 4; // bytes in one row
+                    var cell_row_bytes = row_bytes * cellsize; // bytes in one row of cells
+
+                    for (var x = 0; x < this.width; x++) {
+                        for (var y = 0; y < this.height; y++) {
+                            var i = (x * this.height) + y;
+
+                            var b = this.cells.b[i];
+                            var val = (b - this.minB) / (this.maxB - this.minB) * 255;
+
+                            var base_pos = (y * cell_row_bytes) + (x * cellsize * 4)
+
+                            //console.log("x: %s y: %s i: %s bp: %s v: %s", x, y, i, base_pos, val);
+                            for (var dy = 0; dy < this.cellsize; dy++) {
+                                for (var dx = 0; dx < this.cellsize; dx++) {
+                                    this.image.data[base_pos + (dx*4) + 3] = val;
+                                }
+                                base_pos += row_bytes;
+                            }
+                        }
+                    }
+                    this.ctx.putImageData(this.image, 0, 0);
+                    /**
                     for (var x = 0; x < this.width; x++) {
                         for (var y = 0; y < this.height; y++) {
                             //var a = this.cells[x][y].a;
@@ -81,7 +108,7 @@
                                 this.ctx.fillRect(x*cellsize, y*cellsize, cellsize, cellsize);
                             }
                         }
-                    }
+                    }**/
                 },
 
                 diffuse: function(dbg) {
@@ -119,7 +146,7 @@
                             if (B < 0) { B = 0.0; }
 
                             if (debug) {
-                                console.log("x: %s y: %s ci: %s a: %s A: %s  b: %s B: %s", x, y, ci, a, A,  b, B); 
+                                console.log("x: %s y: %s ci: %s a: %s A: %s  b: %s B: %s", x, y, ci, a, A,  b, B);
                             }
                             this.cells.a[ci] = A;
                             this.cells.b[ci] = B;
@@ -211,7 +238,10 @@
 
                 update: function() {
                     // does a frame update
+                    //var a = performance.now();
                     this.draw();
+                    //var b = performance.now();
+                    //console.log("Draw: %s", (b-a));
                     window.requestAnimationFrame(function() {
                         this.update();
                     }.bind(this));
@@ -245,14 +275,18 @@
             rd.init({
                 da: 1.0,
                 db: 0.5,
-                f: 0.0367,
-                k: 0.0649,
+                //f: 0.0367,
+                //f: 0.0545,
+                f: 0.0340,
+                k: 0.0590,
+                //k: 0.0649,
+                //k: 0.062,
                 h: 1,
                 cellsize: 1,
                 feedpoints: [
-                    {x: 20, y: 20},
-                    {x: 50, y: 10},
-                    {x: 40, y: 30}
+                    //{x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: 256, y: 256},
+                    //{x: 384, y: 384}
                 ],
             });
             window.requestAnimationFrame(function() {
