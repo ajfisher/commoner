@@ -22,11 +22,12 @@
                     this.f = opts.f || 0.155;
                     this.k = opts.k || 0.062;
                     this.h = opts.h || 0.1;
-                    this.cellsize = opts.cellsize || 50;
+                    this.cellsize = opts.cellsize || 16;
 
-                    this.dpf = 0; // used to determine how many diffusions per frame we calc
+                    this.generations = 0; // counts how many generations we've run
 
-                    this.weights = [[0.05, 0.2, 0.05], [0.2, -1, 0.2], [0.05, 0.2, 0.05]];
+                    // 3x3 represented as vector in column major order
+                    this.weights = [0.05, 0.2, 0.05, 0.2, -1, 0.2, 0.05, 0.2, 0.05];
 
                     this.canvas = document.getElementById('cv');
                     this.ctx = this.canvas.getContext('2d');
@@ -35,34 +36,25 @@
                     this.height = this.canvas.height / this.cellsize;
 
                     this.cells = {
-                        a: [],
-                        b: [],
+                        a: new Float32Array(this.width * this.height),
+                        b: new Float32Array(this.width * this.height),
                     };
 
-                    for (var x = 0; x < this.width; x++) {
-                        this.cells.a[x] = new Float32Array(this.height);
-                        this.cells.b[x] = new Float32Array(this.height);
-                        for (var y = 0; y < this.height; y++) {
-                            this.cells.a[x][y] = 1;
-                            this.cells.b[x][y] = 0;
-                            /**{
-                                a: 1, //Math.random(),
-                                b: 0,
-                            };**/
+                    this.cells.a.fill(1);
+                    this.cells.b.fill(0);
+
+                    this.feedpoints = opts.feedpoints || [{ x: this.width/2, y: this.height/2  }];
+                    // take the mid point of the cells and then just drop a
+                    // an aditional point around them. Effectively a 9 cell blob
+                    // of B rather than 1 point.
+                    //this.cells.b[this.width/2 * this.height + this.height/2] = 1.0;
+                    for (var lx = -1; lx <= 1; lx++) {
+                        for (var ly = -1; ly <= 1; ly++) {
+                            var gx = this.width/2 + lx;
+                            var gy = this.height/2 + ly;
+                            this.cells.b[gx * this.height + gy] = 1.0;
                         }
                     }
-                    this.feedpoints = opts.feedpoints || [{ x: this.width/2, y: this.height/2  }];
-                    this.cells.b[this.width/2][this.height/2] = 1.0;
-                    this.cells.b[this.width/2 + 1][this.height/2 + 1] = 1.0;
-                    this.cells.b[this.width/2 - 1][this.height/2 - 1] = 1.0;
-                    this.cells.b[this.width/2 - 1][this.height/2 + 1] = 1.0;
-                    this.cells.b[this.width/2 + 1][this.height/2 - 1] = 1.0;
-                    
-                    /**this.cells[this.width/4][this.height/4].b = 1.0;
-                    this.cells[this.width/4 + 1][this.height/4 + 1].b = 1.0;
-                    this.cells[this.width/4 - 1][this.height/4 - 1].b = 1.0;
-                    this.cells[this.width/4 - 1][this.height/4 + 1].b = 1.0;
-                    this.cells[this.width/4 + 1][this.height/4 - 1].b = 1.0;**/
                     console.log(this);
                     this.diffuse(); // call this once to set the initial conditions
                 },
@@ -74,7 +66,7 @@
                     for (var x = 0; x < this.width; x++) {
                         for (var y = 0; y < this.height; y++) {
                             //var a = this.cells[x][y].a;
-                            var b = this.cells.b[x][y];
+                            var b = this.cells.b[x * this.height + y];
 
                             if (b > this.minB) {
                                 var val = (b - this.minB) / (this.maxB - this.minB);
@@ -83,23 +75,25 @@
                             }
                         }
                     }
-                    //console.log("DPF: %s", this.dpf);
-                    //this.dpf = 0; // reset it out.
                 },
 
-                diffuse: function() {
+                diffuse: function(dbg) {
                     // iterates over the cells and calculates the diffusion.
+
+                    var debug = dbg || false;
                     var minA = maxA = 0;
                     var minB = maxB = 0;
                     var f = this.f;
                     var k = this.k;
                     var cells = this.cells;
+                    var ci = 0;
                     for (var x = 0; x < this.width; x++) {
                         for (var y = 0; y < this.height; y++) {
 
                             var lap = this.laplacian(x, y);
-                            var a = cells.a[x][y];
-                            var b = cells.b[x][y];
+                            //var ci = x * this.height + y; // calc cell index once.
+                            var a = cells.a[ci];
+                            var b = cells.b[ci];
                             var abb = a * b * b;
                             // use this to only allow feed in at a singular point
                             // rather than across the entirety of the surface
@@ -117,20 +111,31 @@
                             if (A < 0) { A = 0.0; }
                             if (B < 0) { B = 0.0; }
 
-                            this.cells.a[x][y] = A;
-                            this.cells.b[x][y] = B;
+                            if (debug) {
+                                console.log("x: %s y: %s ci: %s a: %s A: %s  b: %s B: %s", x, y, ci, a, A,  b, B); 
+                            }
+                            this.cells.a[ci] = A;
+                            this.cells.b[ci] = B;
 
                             if (A < minA) { minA = A; }
                             if (A > maxA) { maxA = A; }
                             if (B < minB) { minB = B; }
                             if (B > maxB) { maxB = B; }
+                            ci++; // increment cell index counter
                         }
                     }
+
                     this.minA = minA;
                     this.minB = minB;
                     this.maxA = maxA;
                     this.maxB = maxB;
-                    //this.dpf++;
+
+                    this.generations++;
+
+                    if (debug) {
+                        console.log("Gen: %s", this.generations);
+                        console.log("<A: %s >A: %s <B: %s >B: %s", minA, maxA, minB, maxB);
+                    }
                 },
 
                 laplacians: function() {
@@ -144,23 +149,31 @@
                     // calculates the weighted average of surrounding cells from the
                     // current one
                     var conc = { a: 0, b: 0};
-                    for (var lx = 0; lx < this.weights.length; lx++) {
-                        for (ly = 0; ly < this.weights[lx].length; ly++) {
-                            var weight = this.weights[lx][ly];
-                            // normalise the array positions based on laplacian
-                            // array relative from the current position
-                            var kx = x + lx - 1;
-                            var ky = y + ly -1;
-                            if (( kx < 0) || ( kx >= this.width) ||
-                                    ( ky < 0) || ( ky >= this.height)){
-                                conc.a = conc.a + 0;
-                                conc.b = conc.b + 0;
+
+                    var ci = []; // array of indices that reference the positions of the adjacent cells
+                    for (var lx = x-1; lx <= x+1; lx++) {
+                        for (var ly = y-1; ly <= y+1; ly++) {
+                            if (lx < 0 || lx > this.width-1 || ly < 0 || ly > this.height-1) {
+                                // detect an edge so push an invalid position
+                                ci.push(-1);
                             } else {
-                                conc.a = conc.a + (weight * this.cells.a[kx][ky]);
-                                conc.b = conc.b + (weight * this.cells.b[kx][ky]);
+                                ci.push(lx*this.height + ly);
                             }
                         }
                     }
+
+                    for (var wi = 0; wi < this.weights.length; wi++) {
+                        if (ci[wi] == -1) {
+                            conc.a += 0;
+                            conc.b += 0;
+                        } else {
+                            conc.a = conc.a + (this.weights[wi] * this.cells.a[ci[wi]]);
+                            conc.b = conc.b + (this.weights[wi] * this.cells.b[ci[wi]]);
+                        }
+                    }
+
+                    //console.log("new: a: %s b: %b", conc.a, conc.b);
+
                     return (conc);
                 },
 
@@ -172,6 +185,29 @@
                         this.update();
                     }.bind(this));
                 },
+
+                run: function(speed) {
+                    // runs the diffuse function
+                    var ms = speed || 100;
+
+                    this.interval = window.setInterval(function() {
+                        var a = performance.now();
+                        rd.diffuse();
+                        var b = performance.now();
+                        console.log("Perf time %s", (b-a));
+                    }, ms);
+                },
+
+                stop: function() {
+                    window.clearInterval(this.interval);
+                },
+
+                step: function(steps) {
+                    // steps the diffuse function this many steps forward
+                    for (var i=0; i< steps; i++) {
+                        this.diffuse(true);
+                    }
+                },
             };
 
             rd.init({
@@ -180,23 +216,16 @@
                 f: 0.0367,
                 k: 0.0649,
                 h: 1,
-                cellsize: 1,
+                cellsize: 4,
                 feedpoints: [
                     {x: 20, y: 20},
                     {x: 50, y: 10},
                     {x: 40, y: 30}
                 ],
             });
-            //window.setInterval(rd.diffuse, 1000);
             window.requestAnimationFrame(function() {
                 rd.update();
             });
-            window.setInterval(function() {
-                var a = performance.now();
-                rd.diffuse();
-                var b = performance.now();
-                console.log("Perf time %s", (b-a));
-            }, 30);
         </script>
     </body>
 </html>
