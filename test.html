@@ -7,6 +7,106 @@
         <script type="text/javascript">
 
 
+            var ToneMap = function(min, max, steps) {
+                // creates a tone map based on the options passed
+                // Params:
+                //  {min}, {max} float values minimum and maximum range to consider
+                //  {steps} object containing array of step values over range 0 - 255
+
+                this.min = min;
+                this.max = max;
+                this.range = max - min;
+                this.steps = steps;
+
+                // now we create the actual colours.
+                this.colours = [];
+
+                var finished = false;
+                var stepindex = 0;
+                var currentstep = steps[0];
+                var nextstep = steps[1];
+                while (! finished) {
+
+                    // determine a range in overall steps
+                    var start = currentstep.position;
+                    var end = nextstep.position;
+                    var range = end - start;
+
+                    // now determine the linear interpolation on each channel
+                    // note we need to check if start and end point is the same and not adjust it
+                    for (var i=start; i<=end; i++) {
+                        var perc = (i - start) / range;
+                        var r =0, g=0, b=0;
+
+                        if (nextstep.r == currentstep.r) {
+                            r = nextstep.r;
+                        } else {
+                            if (nextstep.r > currentstep.r) {
+                                r = Math.round((nextstep.r - currentstep.r) * perc);
+                            } else {
+                                r = Math.round((currentstep.r - nextstep.r) * (1-perc));
+                            }
+                        }
+
+                        if (nextstep.g == currentstep.g) {
+                            g = nextstep.g;
+                        } else {
+                            if (nextstep.g > currentstep.g) {
+                                g = Math.round((nextstep.g - currentstep.g) * perc);
+                            } else {
+                                g = Math.round((currentstep.g - nextstep.g) * (1-perc));
+                            }
+                        }
+
+                        if (nextstep.b == currentstep.b) {
+                            b = nextstep.b;
+                        } else {
+                            if (nextstep.b > currentstep.b) {
+                                b = Math.round((nextstep.b - currentstep.b) * perc);
+                            } else {
+                                b = Math.round((currentstep.r - nextstep.b) * (1-perc));
+                            }
+                        }
+
+                        this.colours[i] = {
+                            r: r, g: g, b: b
+                        };
+                    }
+
+                    stepindex++;
+                    currentstep = this.steps[stepindex];
+                    if (stepindex+1 >= this.steps.length) {
+                        finished = true;
+                    } else {
+                        nextstep = this.steps[stepindex+1];
+                    }
+                }
+            };
+
+            ToneMap.prototype.valColour = function(value) {
+                // takes a value and then it maps it to the range that has
+                // been created and returns a colour. If it's outside the
+                // range, simply return the last item in the colour range
+                // on either side
+
+                if (value >= this.max) return this.colours[this.colours.length-1];
+                if (value < this.min) return this.colours[0];
+
+                var i = Math.round(((value-this.min) / this.range) * this.colours.length);
+
+                if (this.colours[i] == undefined) {
+                    // this is a specific set of conditions where you get a
+                    // rouding scenario by JS that causes a divide by zero 
+                    // and results in undefined. Clearly a diff in accuracy
+                    // of comparator operators.
+
+                    return this.colours[this.colours.length-1];
+                } else {
+                    return this.colours[i];
+                }
+
+            };
+
             var rd = {
                 init:  function(opts) {
 
@@ -34,6 +134,8 @@
 
                     this.image = this.ctx.createImageData(this.canvas.width, this.canvas.height);
 
+                    this.tonemap = opts.tonemap;
+
                     this.cells = {
                         a: new Float32Array(this.width * this.height),
                         b: new Float32Array(this.width * this.height),
@@ -43,7 +145,7 @@
                     this.cells.b.fill(0);
 
                     // 3x3 represented as vector in column major order
-                    this.weights = [0.05, 0.1, 0.05, 0.3, -1, 0.3, 0.05, 0.1, 0.05];
+                    this.weights = [0.05, 0.2, 0.05, 0.2, -1, 0.2, 0.05, 0.2, 0.05];
                     // used to hold a lookup table of the relevant indices in the
                     // cells array to calculate the laplacian operator
                     this.laplacian_lookup = [];
@@ -82,14 +184,20 @@
                             var i = (x * this.height) + y;
 
                             var b = this.cells.b[i];
-                            var val = (b - this.minB) / (this.maxB - this.minB) * 255;
+                            //var val = (b - this.minB) / (this.maxB - this.minB) * 255;
+                            var colour = this.tonemap.valColour(b);
+                            if (colour == undefined) {
+                                console.log(b);
+                            }
 
                             var base_pos = (y * cell_row_bytes) + (x * cellsize * 4)
 
-                            //console.log("x: %s y: %s i: %s bp: %s v: %s", x, y, i, base_pos, val);
                             for (var dy = 0; dy < this.cellsize; dy++) {
                                 for (var dx = 0; dx < this.cellsize; dx++) {
-                                    this.image.data[base_pos + (dx*4) + 3] = val;
+                                    this.image.data[base_pos + (dx*4) + 0] = colour.r;
+                                    this.image.data[base_pos + (dx*4) + 1] = colour.g;
+                                    this.image.data[base_pos + (dx*4) + 2] = colour.b;
+                                    this.image.data[base_pos + (dx*4) + 3] = 255;
                                 }
                                 base_pos += row_bytes;
                             }
@@ -272,6 +380,13 @@
                 },
             };
 
+            var tm = new ToneMap(0, 0.35, [
+                    {r:0, g:0, b:0, position: 0},
+                    {r:255, g:255, b:0, position: 96},
+                    {r:255, g:0, b:0, position: 192},
+                    {r:255, g:255, b:255, position: 255},
+            ]);
+
             rd.init({
                 da: 1.0,
                 db: 0.5,
@@ -284,10 +399,19 @@
                 h: 1,
                 cellsize: 1,
                 feedpoints: [
-                    //{x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: 256, y: 256},
-                    //{x: 384, y: 384}
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
                 ],
+                tonemap: tm,
+
             });
             window.requestAnimationFrame(function() {
                 rd.update();
