@@ -160,15 +160,23 @@
                         kernel: { w: 3, h: 3 },
                     });
 
-                    this.feedpoints = opts.feedpoints || [{ x: this.width/2, y: this.height/2  }];
-                    // take the mid point of the cells and then just drop a
-                    // an aditional point around them. Effectively a 9 cell blob
-                    // of B rather than 1 point.
+                    // feedpoints are expressed in the range 0->1 so they are
+                    // relative to the grid generally. These are then mapped
+                    // to specific cells.
+                    this.feedpoints = opts.feedpoints || [{ x: 0.5, y: 0.5  }];
+
                     this.feedpoints.forEach(function (fp) {
+                        // figure out the position on the grid
+                        var x = Math.round(fp.x * this.width);
+                        var y = Math.round(fp.y * this.height);
+
+                        // now we put a blob around the cell by getting the
+                        // adjacent neighbours.
+
                         for (var lx = -1; lx <= 1; lx++) {
                             for (var ly = -1; ly <= 1; ly++) {
-                                var gx = fp.x + lx;
-                                var gy = fp.y + ly;
+                                var gx = x + lx;
+                                var gy = y + ly;
                                 this.cells.b[gx * this.height + gy] = 1.0;
                             }
                         }
@@ -348,9 +356,11 @@
                 },
 
                 run: function(speed) {
-                    // runs the diffuse function
+                    // runs the diffuse function on a timer
+
                     var ms = speed || 100;
 
+                    //if (this.max_generations == 0 || this.generations < this.max_generations)
                     this.interval = window.setInterval(function() {
                         var a = performance.now();
                         rd.diffuse();
@@ -358,6 +368,13 @@
                         console.log("Perf time %s", (b-a));
                     }, ms);
                 },
+
+                /**runTo: function(speed, generations) {
+                    // runs the diffuser on a timer until the number of
+                    // generations has been reached.
+
+                    
+                },**/
 
                 stop: function() {
                     window.clearInterval(this.interval);
@@ -393,20 +410,18 @@
                 h: 1,
                 cellsize: 1,
                 feedpoints: [
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
-                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
                 ],
                 tonemap: tm,
 
