@@ -32,9 +32,15 @@
                     var end = nextstep.position;
                     var range = end - start;
 
+                    this.colours[start] = {
+                        r: currentstep.r,
+                        g: currentstep.g,
+                        b: currentstep.b,
+                    };
+
                     // now determine the linear interpolation on each channel
                     // note we need to check if start and end point is the same and not adjust it
-                    for (var i=start; i<=end; i++) {
+                    for (var i=start+1; i<=end; i++) {
                         var perc = (i - start) / range;
                         var r =0, g=0, b=0;
 
@@ -42,9 +48,9 @@
                             r = nextstep.r;
                         } else {
                             if (nextstep.r > currentstep.r) {
-                                r = Math.round((nextstep.r - currentstep.r) * perc);
+                                r = currentstep.r + Math.round((nextstep.r - currentstep.r) * perc);
                             } else {
-                                r = Math.round((currentstep.r - nextstep.r) * (1-perc));
+                                r = currentstep.r - Math.round((currentstep.r - nextstep.r) * perc);
                             }
                         }
 
@@ -52,9 +58,9 @@
                             g = nextstep.g;
                         } else {
                             if (nextstep.g > currentstep.g) {
-                                g = Math.round((nextstep.g - currentstep.g) * perc);
+                                g = currentstep.g + Math.round((nextstep.g - currentstep.g) * perc);
                             } else {
-                                g = Math.round((currentstep.g - nextstep.g) * (1-perc));
+                                g = currentstep.g - Math.round((currentstep.g - nextstep.g) * perc);
                             }
                         }
 
@@ -62,9 +68,9 @@
                             b = nextstep.b;
                         } else {
                             if (nextstep.b > currentstep.b) {
-                                b = Math.round((nextstep.b - currentstep.b) * perc);
+                                b = currentstep.b + Math.round((nextstep.b - currentstep.b) * perc);
                             } else {
-                                b = Math.round((currentstep.r - nextstep.b) * (1-perc));
+                                b = currentstep.b - Math.round((currentstep.r - nextstep.b) * perc);
                             }
                         }
 
@@ -186,9 +192,6 @@
                             var b = this.cells.b[i];
                             //var val = (b - this.minB) / (this.maxB - this.minB) * 255;
                             var colour = this.tonemap.valColour(b);
-                            if (colour == undefined) {
-                                console.log(b);
-                            }
 
                             var base_pos = (y * cell_row_bytes) + (x * cellsize * 4)
 
@@ -229,6 +232,7 @@
                     var k = this.k;
                     var cells = this.cells;
                     var ci = 0;
+
                     for (var x = 0; x < this.width; x++) {
                         for (var y = 0; y < this.height; y++) {
 
@@ -237,13 +241,8 @@
                             var a = cells.a[ci];
                             var b = cells.b[ci];
                             var abb = a * b * b;
-                            // use this to only allow feed in at a singular point
-                            // rather than across the entirety of the surface
-                            /**for (var i=0; i< this.feedpoints.length; i++) {
-                                if (x == this.feedpoints[i].x && y == this.feedpoints[i].y) {
-                                    f = this.f;
-                                }
-                            }
+                            //f = this.f * (x / (0.5 * this.width));
+
                             //var A = a + (this.da * lap.a + f * (1.0 - a)) * this.h;
                             //var B = b + (this.db * lap.b - (this.k + f) * b) * this.h**/
 
@@ -278,10 +277,6 @@
                         console.log("Gen: %s", this.generations);
                         console.log("<A: %s >A: %s <B: %s >B: %s", minA, maxA, minB, maxB);
                     }
-                },
-
-                laplacians: function() {
-                    // calculates the laplacian values for the entire grid in strips
                 },
 
                 create_laplacian_lookup: function(opts) {
@@ -346,10 +341,7 @@
 
                 update: function() {
                     // does a frame update
-                    //var a = performance.now();
                     this.draw();
-                    //var b = performance.now();
-                    //console.log("Draw: %s", (b-a));
                     window.requestAnimationFrame(function() {
                         this.update();
                     }.bind(this));
@@ -380,10 +372,12 @@
                 },
             };
 
-            var tm = new ToneMap(0, 0.35, [
-                    {r:64, g:64, b:192, position: 0},
-                    {r:255, g:255, b:0, position: 96},
-                    {r:255, g:0, b:0, position: 192},
+            var tm = new ToneMap(0, 0.4, [
+                    {r:64, g:64, b:96, position: 0},
+                    {r:64, g:128, b:255, position: 32},
+                    {r:64, g:192, b:0, position: 128},
+                    {r:255, g:128, b:0, position: 192},
+                    {r:255, g:128, b:128, position: 220},
                     {r:255, g:255, b:255, position: 255},
             ]);
 
@@ -392,13 +386,17 @@
                 db: 0.5,
                 //f: 0.0367,
                 //f: 0.0545,
-                f: 0.0340,
+                f: 0.0300,
                 k: 0.0590,
                 //k: 0.0649,
                 //k: 0.062,
                 h: 1,
                 cellsize: 1,
                 feedpoints: [
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
+                    {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
                     {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
                     {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
                     {x: Math.round(Math.random()*512), y: Math.round(Math.random()*512)},
