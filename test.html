@@ -3,7 +3,7 @@
     <head>
     </head>
     <body>
-        <canvas width="512" height="512" id="cv" style="border:1px solid #000"></canvas>
+        <canvas width="1024" height="512" id="cv" style="border:1px solid #000"></canvas>
         <script type="text/javascript">
 
 
@@ -148,12 +148,20 @@
                         a: new Float32Array(this.width * this.height),
                         b: new Float32Array(this.width * this.height),
                     };
+                    this.cells.length = (this.width * this.height);
 
                     this.cells.a.fill(1);
                     this.cells.b.fill(0);
 
                     // 3x3 represented as vector in column major order
-                    this.weights = [0.05, 0.2, 0.05, 0.2, -1, 0.2, 0.05, 0.2, 0.05];
+                    /**this.weights = [
+                        [0.05, 0.2, 0.05, 0.2, -1, 0.2, 0.05, 0.2, 0.05],
+                        [0.05, 0.1, 0.05, 0.4, -1, 0.2, 0.05, 0.1, 0.05],
+                    ];**/
+                    this.weights = [0.05, 0.2, 0.05, 0.2, -1, 0.2, 0.05, 0.2, 0.05],
+                    //this.weights = [0.05, 0.1, 0.05, 0.3, -1, 0.3, 0.05, 0.1, 0.05];
+
+
                     // used to hold a lookup table of the relevant indices in the
                     // cells array to calculate the laplacian operator
                     this.laplacian_lookup = [];
@@ -231,10 +239,13 @@
                     var cells = this.cells;
                     var ci = 0;
 
+                    var laps = this.laplacians();
+
                     for (var x = 0; x < this.width; x++) {
                         for (var y = 0; y < this.height; y++) {
 
-                            var lap = this.laplacian(ci);
+                            //var lap = this.laplacian(ci);
+                            var lap = laps[ci];
                             var a = cells.a[ci];
                             var b = cells.b[ci];
                             var abb = a * b * b;
@@ -363,6 +374,34 @@
                     return (conc);
                 },
 
+                laplacians: function() {
+                    // iterates over all cells and calculates the laplacian
+                    // operator, returning array containing all weighted concentration
+                    // values
+
+                    var concentrations = [];
+
+                    for (var cell_index=0; cell_index < this.cells.length; cell_index++) {
+
+                        var ci = this.laplacian_lookup[cell_index];
+                        var conc = {a: 0, b: 0};
+
+                        for (var wi = 0; wi < this.weights.length; wi++) {
+                            if (ci[wi] == -1) {
+                                conc.a += 0;
+                                conc.b += 0;
+                            } else {
+                                conc.a = conc.a + (this.weights[wi] * this.cells.a[ci[wi]]);
+                                conc.b = conc.b + (this.weights[wi] * this.cells.b[ci[wi]]);
+                            }
+                        }
+
+                        concentrations[cell_index] = conc;
+                    }
+                    return(concentrations);
+                },
+
+
                 update: function() {
                     // does a frame update
                     this.draw();
@@ -420,11 +459,23 @@
                 // interesting combos: f 0.03 k 0.0590
                 // mitosis: 0.0300, 0.0630
                 // coral: 0.0545 0.062
-                f: 0.0545,
-                k: 0.062,
+                f: 0.0555,
+                k: 0.063,
                 h: 1,
-                cellsize: 2,
+                cellsize: 1,
                 feedpoints: [
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
+                    {x: Math.random(), y: Math.random()},
                     {x: Math.random(), y: Math.random()},
                     {x: Math.random(), y: Math.random()},
                     {x: Math.random(), y: Math.random()},
